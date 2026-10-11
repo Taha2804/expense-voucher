@@ -2,13 +2,14 @@ import { Prisma, type Voucher } from '@prisma/client';
 import { prisma } from '../../lib/prisma.js';
 import { nextVoucherNumber } from '../../lib/voucherNumber.js';
 import { serializeAmount } from '../../lib/money.js';
-import { ForbiddenError, NotFoundError, ValidationError } from '../../lib/errors.js';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../lib/errors.js';
 import type { PublicUser } from '../auth/auth.service.js';
 import {
   todayLocalISO,
   toUtcMidnight,
   type CreateVoucherInput,
   type ListVouchersQuery,
+  type UpdateVoucherInput,
 } from './vouchers.schemas.js';
 
 const voucherInclude = {
@@ -134,6 +135,94 @@ export async function getVoucherById(user: PublicUser, id: string): Promise<Vouc
   // Not found rather than forbidden: the response must not confirm that a
   // voucher belonging to someone else exists.
   if (!row) throw new NotFoundError('Voucher not found');
+
+  return toVoucherDto(row);
+}
+
+/**
+ * The shared guard for every employee-side write. Not found when the voucher
+ * is someone else's — the same answer as a voucher that does not exist —
+ * conflict when it has left DRAFT and is therefore read-only.
+ */
+export async function assertOwnedDraft(
+  user: PublicUser,
+  id: string,
+  tx: Prisma.TransactionClient,
+): Promise<Voucher> {
+  const voucher = await tx.voucher.findUnique({ where: { id } });
+
+  if (!voucher || voucher.createdById !== user.id) {
+    throw new NotFoundError('Voucher not found');
+  }
+  if (voucher.status !== 'DRAFT') {
+    throw new ConflictError('Only draft vouchers can be modified');
+  }
+
+  return voucher;
+}
+
+export async function updateVoucher(
+  user: PublicUser,
+  id: string,
+  input: UpdateVoucherInput,
+): Promise<VoucherDto> {
+  if (input.employeeSignatureId) {
+    await assertSignatureOwnedBy(user.id, input.employeeSignatureId);
+  }
+
+  const row = await prisma.$transaction(async (tx) => {
+    await assertOwnedDraft(user, id, tx);
+
+    const data: Prisma.VoucherUpdateInput = {};
+    if (input.voucherDate !== undefined) data.voucherDate = toUtcMidnight(input.voucherDate);
+    if (input.expenseDate !== undefined) data.expenseDate = toUtcMidnight(input.expenseDate);
+    if (input.department !== undefined) data.department = input.department;
+    if (input.title !== undefined) data.title = input.title;
+    if (input.category !== undefined) data.category = input.category;
+    if (input.description !== undefined) data.description = input.description;
+    if (input.amount !== undefined) data.amount = new Prisma.Decimal(input.amount);
+    if (input.employeeSignatureId !== undefined) {
+      data.employeeSignature = input.employeeSignatureId
+        ? { connect: { id: input.employeeSignatureId } }
+        : { disconnect: true };
+    }
+
+    return tx.voucher.update({ where: { id }, data, include: voucherInclude });
+  });
+
+  return toVoucherDto(row);
+}
+
+export async function deleteVoucher(user: PublicUser, id: string): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    await assertOwnedDraft(user, id, tx);
+    await tx.voucher.delete({ where: { id } });
+  });
+}
+
+export async function submitVoucher(user: PublicUser, id: string): Promise<VoucherDto> {
+  const voucher = await prisma.voucher.findUnique({ where: { id } });
+
+  // Ownership and signature are checked before the transaction so that the
+  // 403 for someone else's signature is not reported as a 409.
+  if (!voucher || voucher.createdById !== user.id) throw new NotFoundError('Voucher not found');
+  if (voucher.status === 'DRAFT') {
+    if (!voucher.employeeSignatureId) {
+      throw new ValidationError('Your signature is required before submitting this voucher', [
+        { path: ['employeeSignatureId'], message: 'Employee signature is required' },
+      ]);
+    }
+    await assertSignatureOwnedBy(user.id, voucher.employeeSignatureId);
+  }
+
+  const row = await prisma.$transaction(async (tx) => {
+    await assertOwnedDraft(user, id, tx);
+    return tx.voucher.update({
+      where: { id },
+      data: { status: 'PENDING_APPROVAL', submittedAt: new Date() },
+      include: voucherInclude,
+    });
+  });
 
   return toVoucherDto(row);
 }
