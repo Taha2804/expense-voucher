@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
+import { MulterError } from 'multer';
 import { AppError } from '../lib/errors.js';
 
 interface ErrorBody {
@@ -36,6 +37,15 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
         })),
       ),
     );
+    return;
+  }
+
+  if (err instanceof MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      res.status(413).json(body('PAYLOAD_TOO_LARGE', 'The uploaded file is too large'));
+      return;
+    }
+    res.status(400).json(body('VALIDATION_ERROR', err.message));
     return;
   }
 

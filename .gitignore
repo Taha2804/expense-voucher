@@ -27,3 +27,4 @@ Thumbs.db
 
 # Local agent scratch
 .remember/
+backend/tests/.uploads/
