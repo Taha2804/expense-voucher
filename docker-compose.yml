@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: voucher_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: voucher
+      POSTGRES_PASSWORD: voucher
+      POSTGRES_DB: voucher_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - voucher_pgdata:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voucher -d voucher_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  voucher_pgdata:
