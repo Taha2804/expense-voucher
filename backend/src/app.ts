@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { env } from './config/env.js';
 import { NotFoundError } from './lib/errors.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { authRoutes } from './modules/auth/auth.routes.js';
 
 /**
  * Build the Express application. Separate from server.ts so the test suite can
@@ -24,7 +25,7 @@ export function createApp(): Express {
     res.json({ status: 'ok' });
   });
 
-  // Module routers are mounted here as later tasks add them.
+  app.use('/api/auth', authRoutes);
 
   app.use((req) => {
     throw new NotFoundError(`Cannot ${req.method} ${req.path}`);
