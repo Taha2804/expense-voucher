@@ -1,0 +1,28 @@
+/* The voucher detail page doubles as the printable voucher. Navigation,
+   filters and every action control are hidden; what remains is the record the
+   Accounts Team files. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Keep each section whole rather than splitting a signature across pages. */
+  section {
+    break-inside: avoid;
+    border-color: #cbd5e1 !important;
+    box-shadow: none !important;
+  }
+
+  a[href]::after {
+    content: '';
+  }
+}

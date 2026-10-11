@@ -1,4 +1,24 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { z } from 'zod';
+
+/**
+ * Load .env before parsing. Node 22 can do this itself, so the project needs
+ * no dotenv dependency. Values already in the environment win, which is what
+ * lets the test setup and a container override the file.
+ */
+function loadDotEnv(): void {
+  const envFile = resolve(process.cwd(), '.env');
+  if (!existsSync(envFile)) return;
+  try {
+    process.loadEnvFile(envFile);
+  } catch {
+    // A malformed .env should not take the process down before the schema has
+    // had a chance to report what is actually missing.
+  }
+}
+
+loadDotEnv();
 
 /**
  * The environment contract. Parsed once at import time so that a missing or
