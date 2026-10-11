@@ -2,16 +2,20 @@ import type { Request, Response } from 'express';
 import { UnauthorizedError } from '../../lib/errors.js';
 import type { PublicUser } from '../auth/auth.service.js';
 import {
+  approveVoucher,
   createVoucher,
   deleteVoucher,
   getVoucherById,
   listVouchers,
+  rejectVoucher,
   submitVoucher,
   updateVoucher,
 } from './vouchers.service.js';
 import type {
+  ApproveVoucherInput,
   CreateVoucherInput,
   ListVouchersQuery,
+  RejectVoucherInput,
   UpdateVoucherInput,
 } from './vouchers.schemas.js';
 
@@ -51,5 +55,17 @@ export async function deleteVoucherController(req: Request, res: Response): Prom
 
 export async function submitVoucherController(req: Request, res: Response): Promise<void> {
   const voucher = await submitVoucher(currentUser(req), req.params.id as string);
+  res.json({ voucher });
+}
+
+export async function approveVoucherController(req: Request, res: Response): Promise<void> {
+  const { signatureId } = req.body as ApproveVoucherInput;
+  const voucher = await approveVoucher(currentUser(req), req.params.id as string, signatureId);
+  res.json({ voucher });
+}
+
+export async function rejectVoucherController(req: Request, res: Response): Promise<void> {
+  const { rejectionReason } = req.body as RejectVoucherInput;
+  const voucher = await rejectVoucher(currentUser(req), req.params.id as string, rejectionReason);
   res.json({ voucher });
 }

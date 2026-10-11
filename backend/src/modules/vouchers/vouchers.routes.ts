@@ -4,16 +4,20 @@ import { authenticate } from '../../middleware/authenticate.js';
 import { requireRole } from '../../middleware/requireRole.js';
 import { validate } from '../../middleware/validate.js';
 import {
+  approveVoucherSchema,
   createVoucherSchema,
   listVouchersQuerySchema,
+  rejectVoucherSchema,
   updateVoucherSchema,
   voucherIdParamSchema,
 } from './vouchers.schemas.js';
 import {
+  approveVoucherController,
   createVoucherController,
   deleteVoucherController,
   getVoucherController,
   listVouchersController,
+  rejectVoucherController,
   submitVoucherController,
   updateVoucherController,
 } from './vouchers.controller.js';
@@ -62,4 +66,19 @@ voucherRoutes.post(
   requireRole('EMPLOYEE'),
   validate({ params: voucherIdParamSchema }),
   asyncHandler(submitVoucherController),
+);
+
+// Only the Director reviews, and only a voucher awaiting approval can move.
+voucherRoutes.post(
+  '/:id/approve',
+  requireRole('DIRECTOR'),
+  validate({ params: voucherIdParamSchema, body: approveVoucherSchema }),
+  asyncHandler(approveVoucherController),
+);
+
+voucherRoutes.post(
+  '/:id/reject',
+  requireRole('DIRECTOR'),
+  validate({ params: voucherIdParamSchema, body: rejectVoucherSchema }),
+  asyncHandler(rejectVoucherController),
 );

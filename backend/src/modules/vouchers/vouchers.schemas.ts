@@ -122,4 +122,19 @@ export type ListVouchersQuery = z.infer<typeof listVouchersQuerySchema>;
 
 export const voucherIdParamSchema = z.object({ id: z.string().uuid('Invalid voucher id') });
 
+export const approveVoucherSchema = z.object({
+  signatureId: z.string().uuid('A director signature is required before approval'),
+});
+
+export const rejectVoucherSchema = z.object({
+  rejectionReason: z
+    .string()
+    .trim()
+    .min(10, 'Please give a reason of at least 10 characters')
+    .max(500, 'The reason must be at most 500 characters'),
+});
+
+export type ApproveVoucherInput = z.infer<typeof approveVoucherSchema>;
+export type RejectVoucherInput = z.infer<typeof rejectVoucherSchema>;
+
 export { toUtcMidnight };

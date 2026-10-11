@@ -227,6 +227,64 @@ export async function submitVoucher(user: PublicUser, id: string): Promise<Vouch
   return toVoucherDto(row);
 }
 
+/**
+ * Move a voucher out of PENDING_APPROVAL.
+ *
+ * The status is part of the WHERE clause, so Postgres decides the race: a
+ * second request arriving while the first is in flight matches zero rows and
+ * becomes a conflict. A read-then-write would let both through and the second
+ * would overwrite the first reviewer's decision.
+ */
+async function transitionFromPending(
+  id: string,
+  data: Prisma.VoucherUncheckedUpdateManyInput,
+): Promise<VoucherDto> {
+  return prisma.$transaction(async (tx) => {
+    const { count } = await tx.voucher.updateMany({
+      where: { id, status: 'PENDING_APPROVAL' },
+      data,
+    });
+
+    if (count === 0) {
+      const exists = await tx.voucher.findUnique({ where: { id }, select: { id: true } });
+      if (!exists) throw new NotFoundError('Voucher not found');
+      throw new ConflictError('Only vouchers awaiting approval can be approved or rejected');
+    }
+
+    const row = await tx.voucher.findUniqueOrThrow({ where: { id }, include: voucherInclude });
+    return toVoucherDto(row);
+  });
+}
+
+export async function approveVoucher(
+  director: PublicUser,
+  id: string,
+  signatureId: string,
+): Promise<VoucherDto> {
+  await assertSignatureOwnedBy(director.id, signatureId);
+
+  return transitionFromPending(id, {
+    status: 'APPROVED',
+    approvalDate: new Date(),
+    reviewedById: director.id,
+    directorSignatureId: signatureId,
+    rejectionReason: null,
+  });
+}
+
+export async function rejectVoucher(
+  director: PublicUser,
+  id: string,
+  rejectionReason: string,
+): Promise<VoucherDto> {
+  return transitionFromPending(id, {
+    status: 'REJECTED',
+    rejectionReason,
+    reviewedById: director.id,
+    approvalDate: null,
+  });
+}
+
 export interface PaginatedVouchers {
   data: VoucherDto[];
   pagination: { page: number; pageSize: number; total: number; totalPages: number };
