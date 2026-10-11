@@ -35,6 +35,7 @@ export interface VoucherDto {
   employeeSignatureId: string | null;
   directorSignatureId: string | null;
   submittedAt: string | null;
+  reviewedAt: string | null;
   approvalDate: string | null;
   rejectionReason: string | null;
   createdAt: string;
@@ -58,6 +59,7 @@ export function toVoucherDto(row: VoucherRow): VoucherDto {
     employeeSignatureId: row.employeeSignatureId,
     directorSignatureId: row.directorSignatureId,
     submittedAt: row.submittedAt?.toISOString() ?? null,
+    reviewedAt: row.reviewedAt?.toISOString() ?? null,
     approvalDate: row.approvalDate?.toISOString() ?? null,
     rejectionReason: row.rejectionReason,
     createdAt: row.createdAt.toISOString(),
@@ -263,9 +265,11 @@ export async function approveVoucher(
 ): Promise<VoucherDto> {
   await assertSignatureOwnedBy(director.id, signatureId);
 
+  const now = new Date();
   return transitionFromPending(id, {
     status: 'APPROVED',
-    approvalDate: new Date(),
+    reviewedAt: now,
+    approvalDate: now,
     reviewedById: director.id,
     directorSignatureId: signatureId,
     rejectionReason: null,
@@ -279,6 +283,7 @@ export async function rejectVoucher(
 ): Promise<VoucherDto> {
   return transitionFromPending(id, {
     status: 'REJECTED',
+    reviewedAt: new Date(),
     rejectionReason,
     reviewedById: director.id,
     approvalDate: null,

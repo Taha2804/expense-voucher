@@ -85,6 +85,7 @@ function rows(): Row[] {
     { method: 'get', path: '/api/auth/me', expected: ALL_ROLES_ALLOWED },
     { method: 'get', path: '/api/vouchers', expected: ALL_ROLES_ALLOWED },
     { method: 'get', path: `/api/vouchers/${draftId}`, expected: ALL_ROLES_ALLOWED },
+    { method: 'get', path: '/api/dashboard/stats', expected: ALL_ROLES_ALLOWED },
     {
       method: 'post',
       path: '/api/vouchers',

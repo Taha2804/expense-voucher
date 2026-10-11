@@ -64,6 +64,7 @@ export async function makeVoucher(overrides: VoucherOverrides): Promise<Voucher>
       directorSignatureId: overrides.directorSignatureId ?? null,
       reviewedById: overrides.reviewedById ?? null,
       submittedAt: overrides.submittedAt ?? null,
+      reviewedAt: overrides.reviewedAt ?? null,
       approvalDate: overrides.approvalDate ?? null,
       rejectionReason: overrides.rejectionReason ?? null,
     },

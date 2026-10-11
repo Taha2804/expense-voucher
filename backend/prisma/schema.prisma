@@ -106,6 +106,9 @@ model Voucher {
 
   /// When the employee submitted it for approval, i.e. when it left DRAFT.
   submittedAt      DateTime?
+  /// When the Director acted, whether approving or rejecting. approvalDate is
+  /// set only on approval, so "Rejected Today" needs its own timestamp.
+  reviewedAt       DateTime?
   approvalDate     DateTime?
   rejectionReason  String?
 
@@ -125,4 +128,5 @@ model Voucher {
   @@index([expenseDate])
   @@index([amount])
   @@index([department])
+  @@index([reviewedAt])
 }
