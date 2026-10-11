@@ -7,6 +7,7 @@ import { NotFoundError } from './lib/errors.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { authRoutes } from './modules/auth/auth.routes.js';
 import { signatureRoutes } from './modules/signatures/signatures.routes.js';
+import { voucherRoutes } from './modules/vouchers/vouchers.routes.js';
 
 /**
  * Build the Express application. Separate from server.ts so the test suite can
@@ -28,6 +29,7 @@ export function createApp(): Express {
 
   app.use('/api/auth', authRoutes);
   app.use('/api/signatures', signatureRoutes);
+  app.use('/api/vouchers', voucherRoutes);
 
   app.use((req) => {
     throw new NotFoundError(`Cannot ${req.method} ${req.path}`);
