@@ -1,0 +1,128 @@
+// Expense Voucher Management System — database schema.
+//
+// Three tables. A User logs in and holds a role; a Signature is one uploaded
+// image owned by a user; a Voucher is one expense claim moving through the
+// approval workflow.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  EMPLOYEE
+  DIRECTOR
+  ACCOUNTS
+}
+
+enum VoucherStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
+}
+
+enum ExpenseCategory {
+  TRAVEL
+  MEALS
+  ACCOMMODATION
+  OFFICE_SUPPLIES
+  CLIENT_ENTERTAINMENT
+  TRAINING
+  COMMUNICATION
+  OTHER
+}
+
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  passwordHash String
+  name         String
+  /// Optional per the requirements. Printed on the voucher as "Employee ID".
+  employeeCode String?
+  /// Pre-fills the voucher form. The voucher keeps its own copy, so a later
+  /// transfer between departments does not rewrite past claims.
+  department   String?
+  role         Role
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  signatures       Signature[]
+  createdVouchers  Voucher[]   @relation("VoucherCreatedBy")
+  reviewedVouchers Voucher[]   @relation("VoucherReviewedBy")
+
+  @@index([role])
+}
+
+model Signature {
+  id       String @id @default(uuid())
+  ownerId  String
+  /// Path relative to UPLOAD_DIR. The stored name is a generated UUID; the
+  /// client's filename never reaches the filesystem.
+  filePath String
+  mimeType String
+  sizeBytes Int
+
+  createdAt DateTime @default(now())
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  employeeSignatureFor Voucher[] @relation("VoucherEmployeeSignature")
+  directorSignatureFor Voucher[] @relation("VoucherDirectorSignature")
+
+  @@index([ownerId])
+}
+
+model Voucher {
+  id String @id @default(uuid())
+
+  /// Auto-generated, VCH-<year>-<6 digits>, drawn from voucher_number_seq.
+  voucherNumber String @unique
+
+  /// When the voucher itself was raised. Defaults to the creation date.
+  voucherDate DateTime @db.Date
+  /// When the money was actually spent. Mandatory, and never in the future.
+  expenseDate DateTime @db.Date
+
+  department  String
+  title       String
+  category    ExpenseCategory
+  description String?
+  amount      Decimal         @db.Decimal(12, 2)
+
+  status VoucherStatus @default(DRAFT)
+
+  createdById String
+  /// The Director who approved or rejected this voucher. Null until reviewed.
+  reviewedById String?
+
+  employeeSignatureId String?
+  directorSignatureId String?
+
+  /// When the employee submitted it for approval, i.e. when it left DRAFT.
+  submittedAt      DateTime?
+  approvalDate     DateTime?
+  rejectionReason  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // A user who has raised vouchers must not be deletable — the voucher is a
+  // financial record and the employee's name is part of it.
+  createdBy  User  @relation("VoucherCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  reviewedBy User? @relation("VoucherReviewedBy", fields: [reviewedById], references: [id], onDelete: Restrict)
+
+  employeeSignature Signature? @relation("VoucherEmployeeSignature", fields: [employeeSignatureId], references: [id], onDelete: Restrict)
+  directorSignature Signature? @relation("VoucherDirectorSignature", fields: [directorSignatureId], references: [id], onDelete: Restrict)
+
+  @@index([createdById, status])
+  @@index([status])
+  @@index([expenseDate])
+  @@index([amount])
+  @@index([department])
+}
