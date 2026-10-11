@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+
+# Uploaded signature images (runtime data, not source)
+backend/uploads/*
+!backend/uploads/.gitkeep
+!backend/uploads/signatures/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor and OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Local agent scratch
+.remember/
